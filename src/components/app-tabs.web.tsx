@@ -24,6 +24,12 @@ export default function AppTabs() {
           <TabTrigger name="index" href="/" asChild>
             <TabButton>Çevirici</TabButton>
           </TabTrigger>
+          <TabTrigger name="planner" href="/planner" asChild>
+            <TabButton>Planlayıcı</TabButton>
+          </TabTrigger>
+          <TabTrigger name="expenses" href="/expenses" asChild>
+            <TabButton>Defter</TabButton>
+          </TabTrigger>
           <TabTrigger name="phrases" href="/phrases" asChild>
             <TabButton>Cümleler</TabButton>
           </TabTrigger>

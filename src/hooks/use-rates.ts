@@ -1,12 +1,12 @@
 import { useState, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-export const DEFAULT_EUR_TO_TRY = 36.2;
-export const DEFAULT_EUR_TO_BAM = 1.95583;
+export const DEFAULT_EUR_TO_TRY = 53.24;
+export const DEFAULT_EUR_TO_BAM = 1.96;
 
 const STORAGE_KEYS = {
-  EUR_TO_TRY: 'BOSNA_REHBERI_EUR_TO_TRY',
-  EUR_TO_BAM: 'BOSNA_REHBERI_EUR_TO_BAM',
+  EUR_TO_TRY: 'BOSNA_REHBERI_EUR_TO_TRY_V2',
+  EUR_TO_BAM: 'BOSNA_REHBERI_EUR_TO_BAM_V2',
 };
 
 export function useRates() {

@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useRef, useEffect } from 'react';
 import {
   StyleSheet,
   TextInput,
@@ -10,25 +10,78 @@ import {
   TouchableWithoutFeedback,
   Keyboard,
   ActivityIndicator,
+  Image,
+  useWindowDimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { StatusBar } from 'expo-status-bar';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { useRates } from '@/hooks/use-rates';
+import { useTheme } from '@/hooks/use-theme';
 import { BottomTabInset, Spacing } from '@/constants/theme';
 
 type CurrencyType = 'TRY' | 'BAM' | 'EUR';
 
 export default function CurrencyConverterScreen() {
   const { eurToTry, eurToBam, loading, refresh } = useRates();
+  const theme = useTheme();
   
   const [tryVal, setTryVal] = useState('');
   const [bamVal, setBamVal] = useState('');
   const [eurVal, setEurVal] = useState('');
   const [activeCurrency, setActiveCurrency] = useState<CurrencyType>('BAM');
+
+  // Keyboard scrolling refs and values
+  const scrollViewRef = useRef<ScrollView>(null);
+  const { height: screenHeight } = useWindowDimensions();
+  const [containerY, setContainerY] = useState(0);
+  const [inputLayouts, setInputLayouts] = useState<Record<string, number>>({});
+  const [keyboardHeight, setKeyboardHeight] = useState(280);
+  const [focusedInputKey, setFocusedInputKey] = useState<string | null>(null);
+
+  const scrollToCenter = useCallback((absoluteY: number, kh: number) => {
+    const visibleHeight = screenHeight - kh;
+    const cardHeight = 80;
+    const targetScrollY = absoluteY - (visibleHeight / 2) + (cardHeight / 2);
+    
+    scrollViewRef.current?.scrollTo({
+      y: Math.max(0, targetScrollY),
+      animated: true,
+    });
+  }, [screenHeight]);
+
+  useEffect(() => {
+    const showSubscription = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
+      (e) => {
+        const kh = e.endCoordinates.height;
+        setKeyboardHeight(kh);
+        
+        if (focusedInputKey) {
+          const cardY = inputLayouts[focusedInputKey];
+          if (cardY !== undefined) {
+            scrollToCenter(containerY + cardY, kh);
+          }
+        }
+      }
+    );
+    
+    return () => {
+      showSubscription.remove();
+    };
+  }, [focusedInputKey, inputLayouts, containerY, scrollToCenter]);
+
+  const handleFocus = (key: string) => {
+    setFocusedInputKey(key);
+    const cardY = inputLayouts[key];
+    if (cardY !== undefined) {
+      scrollToCenter(containerY + cardY, keyboardHeight);
+    }
+  };
 
   // Sayfa her odağa geldiğinde güncel kurları yükle
   useFocusEffect(
@@ -45,7 +98,6 @@ export default function CurrencyConverterScreen() {
       return;
     }
 
-    // Türkçe klavyeler için virgülü noktaya çevir
     const cleanText = text.replace(',', '.');
     const num = parseFloat(cleanText);
     
@@ -102,7 +154,7 @@ export default function CurrencyConverterScreen() {
   if (loading) {
     return (
       <ThemedView style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#FFD700" />
+        <ActivityIndicator size="large" color="#0D9488" />
         <ThemedText style={{ marginTop: Spacing.two }}>Kurlar yükleniyor...</ThemedText>
       </ThemedView>
     );
@@ -119,16 +171,23 @@ export default function CurrencyConverterScreen() {
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       style={{ flex: 1 }}
     >
-      <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-        <ThemedView style={styles.container}>
-          <SafeAreaView style={styles.safeArea}>
-            <ScrollView
-              contentContainerStyle={styles.scrollContent}
-              keyboardShouldPersistTaps="handled"
-              showsVerticalScrollIndicator={false}
-            >
+      <ThemedView style={styles.container}>
+        <StatusBar style="auto" />
+        <SafeAreaView style={styles.safeArea} edges={['top']}>
+          <ScrollView
+            ref={scrollViewRef}
+            contentContainerStyle={styles.scrollContent}
+            keyboardShouldPersistTaps="handled"
+            keyboardDismissMode="on-drag"
+            showsVerticalScrollIndicator={false}
+          >
               {/* Header */}
               <View style={styles.header}>
+                <Image
+                  source={require('@/assets/images/logo.png')}
+                  style={styles.logo}
+                  resizeMode="contain"
+                />
                 <ThemedText type="subtitle" style={styles.brandTitle}>
                   BOSNA REHBERİ
                 </ThemedText>
@@ -138,58 +197,70 @@ export default function CurrencyConverterScreen() {
               </View>
 
               {/* Kurs Bilgisi Kartı */}
-              <View style={styles.ratesCard}>
+              <View style={[styles.ratesCard, { backgroundColor: theme.backgroundElement, borderColor: theme.backgroundSelected }]}>
                 <View style={styles.rateRow}>
-                  <MaterialCommunityIcons name="currency-eur" size={18} color="#FFD700" />
-                  <ThemedText type="small" style={styles.rateText}>
-                    1 EUR = {eurToTry.toFixed(2)} TL
+                  <MaterialCommunityIcons name="currency-eur" size={18} color="#D97706" />
+                  <ThemedText type="small" style={{ color: theme.textSecondary, marginLeft: Spacing.one }}>
+                    1 EUR = <ThemedText type="smallBold">{eurToTry.toFixed(2)} TL</ThemedText>
                   </ThemedText>
-                  <View style={styles.dividerDot} />
-                  <ThemedText type="small" style={styles.rateText}>
-                    1 EUR = {eurToBam.toFixed(2)} BAM
+                  <View style={[styles.dividerDot, { backgroundColor: theme.backgroundSelected }]} />
+                  <ThemedText type="small" style={{ color: theme.textSecondary }}>
+                    1 EUR = <ThemedText type="smallBold">{eurToBam.toFixed(2)} BAM</ThemedText>
                   </ThemedText>
                 </View>
-                <View style={[styles.rateRow, { marginTop: Spacing.one }]}>
-                  <MaterialCommunityIcons name="currency-try" size={18} color="#10B981" />
-                  <ThemedText type="small" style={styles.rateText}>
-                    1 BAM = {bamToTryRate.toFixed(2)} TL
+                <View style={[styles.rateRow, { marginTop: Spacing.two }]}>
+                  <MaterialCommunityIcons name="currency-try" size={18} color="#059669" />
+                  <ThemedText type="small" style={{ color: theme.textSecondary, marginLeft: Spacing.one }}>
+                    1 BAM = <ThemedText type="smallBold">{bamToTryRate.toFixed(2)} TL</ThemedText>
                   </ThemedText>
-                  <View style={styles.dividerDot} />
-                  <ThemedText type="small" style={styles.rateText}>
-                    100 TL = {(100 * tryToBamRate).toFixed(2)} BAM
+                  <View style={[styles.dividerDot, { backgroundColor: theme.backgroundSelected }]} />
+                  <ThemedText type="small" style={{ color: theme.textSecondary }}>
+                    100 TL = <ThemedText type="smallBold">{(100 * tryToBamRate).toFixed(2)} BAM</ThemedText>
                   </ThemedText>
                 </View>
               </View>
 
               {/* Kur Giriş Alanları */}
-              <View style={styles.inputsContainer}>
+              <View
+                style={styles.inputsContainer}
+                onLayout={(e) => setContainerY(e.nativeEvent.layout.y)}
+              >
                 
                 {/* BAM Card */}
                 <TouchableOpacity
                   activeOpacity={0.9}
                   style={[
                     styles.currencyCard,
+                    { backgroundColor: theme.backgroundElement, borderColor: theme.backgroundSelected },
                     activeCurrency === 'BAM' && styles.activeCard,
                   ]}
                   onPress={() => setActiveCurrency('BAM')}
+                  onLayout={(e) => {
+                    const y = e.nativeEvent.layout.y;
+                    setInputLayouts((prev) => ({ ...prev, BAM: y }));
+                  }}
                 >
                   <View style={styles.currencyMeta}>
                     <ThemedText style={styles.flag}>🇧🇦</ThemedText>
                     <View>
-                      <ThemedText type="smallBold">BAM</ThemedText>
-                      <ThemedText type="small" style={styles.currencySub}>
+                      <ThemedText type="smallBold" style={{ color: theme.text }}>BAM</ThemedText>
+                      <ThemedText type="small" style={{ color: theme.textSecondary }}>
                         Bosna Markı (KM)
                       </ThemedText>
                     </View>
                   </View>
                   <TextInput
-                    style={styles.input}
+                    style={[styles.input, { color: theme.text }]}
                     value={bamVal}
                     onChangeText={(t) => calculate(t, 'BAM')}
                     keyboardType="numeric"
                     placeholder="0.00"
-                    placeholderTextColor="#666"
-                    onFocus={() => setActiveCurrency('BAM')}
+                    placeholderTextColor={theme.textSecondary}
+                    onFocus={() => {
+                      setActiveCurrency('BAM');
+                      handleFocus('BAM');
+                    }}
+                    onBlur={() => setFocusedInputKey(null)}
                   />
                 </TouchableOpacity>
 
@@ -198,27 +269,36 @@ export default function CurrencyConverterScreen() {
                   activeOpacity={0.9}
                   style={[
                     styles.currencyCard,
+                    { backgroundColor: theme.backgroundElement, borderColor: theme.backgroundSelected },
                     activeCurrency === 'TRY' && styles.activeCard,
                   ]}
                   onPress={() => setActiveCurrency('TRY')}
+                  onLayout={(e) => {
+                    const y = e.nativeEvent.layout.y;
+                    setInputLayouts((prev) => ({ ...prev, TRY: y }));
+                  }}
                 >
                   <View style={styles.currencyMeta}>
                     <ThemedText style={styles.flag}>🇹🇷</ThemedText>
                     <View>
-                      <ThemedText type="smallBold">TRY</ThemedText>
-                      <ThemedText type="small" style={styles.currencySub}>
+                      <ThemedText type="smallBold" style={{ color: theme.text }}>TRY</ThemedText>
+                      <ThemedText type="small" style={{ color: theme.textSecondary }}>
                         Türk Lirası (₺)
                       </ThemedText>
                     </View>
                   </View>
                   <TextInput
-                    style={styles.input}
+                    style={[styles.input, { color: theme.text }]}
                     value={tryVal}
                     onChangeText={(t) => calculate(t, 'TRY')}
                     keyboardType="numeric"
                     placeholder="0.00"
-                    placeholderTextColor="#666"
-                    onFocus={() => setActiveCurrency('TRY')}
+                    placeholderTextColor={theme.textSecondary}
+                    onFocus={() => {
+                      setActiveCurrency('TRY');
+                      handleFocus('TRY');
+                    }}
+                    onBlur={() => setFocusedInputKey(null)}
                   />
                 </TouchableOpacity>
 
@@ -227,44 +307,53 @@ export default function CurrencyConverterScreen() {
                   activeOpacity={0.9}
                   style={[
                     styles.currencyCard,
+                    { backgroundColor: theme.backgroundElement, borderColor: theme.backgroundSelected },
                     activeCurrency === 'EUR' && styles.activeCard,
                   ]}
                   onPress={() => setActiveCurrency('EUR')}
+                  onLayout={(e) => {
+                    const y = e.nativeEvent.layout.y;
+                    setInputLayouts((prev) => ({ ...prev, EUR: y }));
+                  }}
                 >
                   <View style={styles.currencyMeta}>
                     <ThemedText style={styles.flag}>🇪🇺</ThemedText>
                     <View>
-                      <ThemedText type="smallBold">EUR</ThemedText>
-                      <ThemedText type="small" style={styles.currencySub}>
+                      <ThemedText type="smallBold" style={{ color: theme.text }}>EUR</ThemedText>
+                      <ThemedText type="small" style={{ color: theme.textSecondary }}>
                         Avro (€)
                       </ThemedText>
                     </View>
                   </View>
                   <TextInput
-                    style={styles.input}
+                    style={[styles.input, { color: theme.text }]}
                     value={eurVal}
                     onChangeText={(t) => calculate(t, 'EUR')}
                     keyboardType="numeric"
                     placeholder="0.00"
-                    placeholderTextColor="#666"
-                    onFocus={() => setActiveCurrency('EUR')}
+                    placeholderTextColor={theme.textSecondary}
+                    onFocus={() => {
+                      setActiveCurrency('EUR');
+                      handleFocus('EUR');
+                    }}
+                    onBlur={() => setFocusedInputKey(null)}
                   />
                 </TouchableOpacity>
               </View>
 
               {/* Hızlı Ekleme Butonları */}
               <View style={styles.actionContainer}>
-                <ThemedText type="small" style={styles.sectionLabel}>
+                <ThemedText type="small" style={{ color: theme.textSecondary, marginBottom: Spacing.two }}>
                   Hızlı Miktar Ekle ({activeCurrency})
                 </ThemedText>
                 <View style={styles.presetRow}>
                   {presets[activeCurrency].map((amount) => (
                     <TouchableOpacity
                       key={amount}
-                      style={styles.presetButton}
+                      style={[styles.presetButton, { backgroundColor: theme.backgroundElement, borderColor: theme.backgroundSelected }]}
                       onPress={() => addPreset(amount)}
                     >
-                      <ThemedText type="smallBold" style={styles.presetText}>
+                      <ThemedText type="smallBold" style={{ color: '#0D9488' }}>
                         +{amount}
                       </ThemedText>
                     </TouchableOpacity>
@@ -274,8 +363,8 @@ export default function CurrencyConverterScreen() {
 
               {/* Temizle Butonu */}
               <TouchableOpacity style={styles.clearButton} onPress={handleClear}>
-                <MaterialCommunityIcons name="delete-sweep" size={20} color="#fff" />
-                <ThemedText type="smallBold" style={styles.clearButtonText}>
+                <MaterialCommunityIcons name="delete-sweep" size={20} color="#EF4444" />
+                <ThemedText type="smallBold" style={{ color: '#EF4444' }}>
                   Tümünü Temizle
                 </ThemedText>
               </TouchableOpacity>
@@ -283,8 +372,7 @@ export default function CurrencyConverterScreen() {
             </ScrollView>
           </SafeAreaView>
         </ThemedView>
-      </TouchableWithoutFeedback>
-    </KeyboardAvoidingView>
+      </KeyboardAvoidingView>
   );
 }
 
@@ -302,51 +390,50 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingHorizontal: Spacing.four,
-    paddingTop: Spacing.three,
+    paddingTop: Spacing.two,
     paddingBottom: BottomTabInset + Spacing.four,
   },
   header: {
     alignItems: 'center',
     marginVertical: Spacing.two,
   },
+  logo: {
+    width: 72,
+    height: 72,
+    borderRadius: 18,
+    marginBottom: Spacing.two,
+  },
   brandTitle: {
     fontWeight: '800',
-    color: '#FFD700',
+    color: '#0D9488', // Soft Turquoise
     letterSpacing: 2,
   },
   brandSubtitle: {
-    color: '#10B981',
+    color: '#10B981', // Soft Light Green
     textTransform: 'uppercase',
     letterSpacing: 1,
     marginTop: Spacing.half,
   },
   ratesCard: {
-    backgroundColor: '#1E293B',
     borderRadius: Spacing.three,
     padding: Spacing.three,
     marginBottom: Spacing.four,
-    borderWidth: 1,
-    borderColor: '#334155',
-    shadowColor: '#000',
-    shadowOpacity: 0.1,
-    shadowRadius: 5,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 3,
+    borderWidth: 1.5,
+    shadowColor: '#64748B',
+    shadowOpacity: 0.05,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 2,
   },
   rateRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  rateText: {
-    color: '#94A3B8',
-    marginLeft: Spacing.one,
-  },
   dividerDot: {
-    width: 4,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: '#475569',
+    width: 5,
+    height: 5,
+    borderRadius: 2.5,
     marginHorizontal: Spacing.three,
   },
   inputsContainer: {
@@ -357,16 +444,17 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: '#0F172A',
     borderRadius: Spacing.three,
     paddingHorizontal: Spacing.four,
     paddingVertical: Spacing.three,
     borderWidth: 1.5,
-    borderColor: '#1E293B',
   },
   activeCard: {
-    borderColor: '#FFD700',
-    backgroundColor: '#1E1B4B',
+    borderColor: '#0D9488', // Turquoise border
+    shadowColor: '#0D9488',
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 2 },
   },
   currencyMeta: {
     flexDirection: 'row',
@@ -376,14 +464,9 @@ const styles = StyleSheet.create({
   flag: {
     fontSize: 32,
   },
-  currencySub: {
-    color: '#64748B',
-    marginTop: Spacing.half / 2,
-  },
   input: {
     fontSize: 22,
     fontWeight: 'bold',
-    color: '#F8FAFC',
     textAlign: 'right',
     flex: 1,
     marginLeft: Spacing.three,
@@ -392,10 +475,6 @@ const styles = StyleSheet.create({
   actionContainer: {
     marginBottom: Spacing.four,
   },
-  sectionLabel: {
-    color: '#94A3B8',
-    marginBottom: Spacing.two,
-  },
   presetRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -403,31 +482,20 @@ const styles = StyleSheet.create({
   },
   presetButton: {
     flex: 1,
-    backgroundColor: '#1E293B',
     paddingVertical: Spacing.two,
     borderRadius: Spacing.two,
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#334155',
-  },
-  presetText: {
-    color: '#FFD700',
+    borderWidth: 1.5,
   },
   clearButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#EF4444',
+    backgroundColor: '#FEE2E2', // Soft Coral Red Background
     paddingVertical: Spacing.three,
     borderRadius: Spacing.three,
     gap: Spacing.two,
-    shadowColor: '#EF4444',
-    shadowOpacity: 0.2,
-    shadowRadius: 5,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 2,
-  },
-  clearButtonText: {
-    color: '#ffffff',
+    borderWidth: 1.5,
+    borderColor: '#FCA5A5',
   },
 });

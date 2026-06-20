@@ -7,23 +7,36 @@ import {
   TouchableOpacity,
   ScrollView,
   Keyboard,
+  Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as Clipboard from 'expo-clipboard';
+import { StatusBar } from 'expo-status-bar';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { PHRASES, CATEGORIES, Phrase } from '@/constants/PhrasesData';
+import { useTheme } from '@/hooks/use-theme';
 import { BottomTabInset, Spacing } from '@/constants/theme';
 
+// Kategorilere özel renkler (soft pastel)
+const CATEGORY_COLORS: Record<string, { primary: string; lightBg: string }> = {
+  'Genel': { primary: '#3B82F6', lightBg: '#EFF6FF' },       // Soft Blue
+  'Yemek': { primary: '#F59E0B', lightBg: '#FEF3C7' },       // Soft Orange
+  'Ulaşım': { primary: '#06B6D4', lightBg: '#ECFEFF' },      // Soft Teal
+  'Alışveriş': { primary: '#8B5CF6', lightBg: '#F5F3FF' },   // Soft Purple
+  'Bebek': { primary: '#10B981', lightBg: '#ECFDF5' },       // Soft Emerald/Mint
+  'Acil Durum': { primary: '#EF4444', lightBg: '#FEE2E2' },  // Soft Red
+};
+
 export default function PhrasesScreen() {
+  const theme = useTheme();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('Tümü');
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
   const handleCopy = async (phrase: Phrase) => {
-    // Boşnakça çevirisini panoya kopyalayalım çünkü yerel dilde göstermek/okutmak isteyebilir
     await Clipboard.setStringAsync(phrase.bs);
     setCopiedId(phrase.id);
     setTimeout(() => {
@@ -47,12 +60,22 @@ export default function PhrasesScreen() {
 
   const renderPhraseCard = ({ item }: { item: Phrase }) => {
     const isCopied = copiedId === item.id;
+    const catColor = CATEGORY_COLORS[item.category] || { primary: '#64748B', lightBg: '#F1F5F9' };
 
     return (
-      <ThemedView type="backgroundElement" style={styles.card}>
+      <View
+        style={[
+          styles.card,
+          {
+            backgroundColor: theme.backgroundElement,
+            borderColor: theme.backgroundSelected,
+            borderLeftColor: catColor.primary,
+          },
+        ]}
+      >
         <View style={styles.cardHeader}>
-          <View style={styles.categoryBadge}>
-            <ThemedText type="code" style={styles.categoryBadgeText}>
+          <View style={[styles.categoryBadge, { backgroundColor: catColor.lightBg, borderColor: catColor.primary }]}>
+            <ThemedText type="code" style={[styles.categoryBadgeText, { color: catColor.primary }]}>
               {item.category}
             </ThemedText>
           </View>
@@ -61,15 +84,15 @@ export default function PhrasesScreen() {
             onPress={() => handleCopy(item)}
           >
             <MaterialCommunityIcons
-              name={isCopied ? 'check' : 'content-copy'}
-              size={16}
-              color={isCopied ? '#10B981' : '#94A3B8'}
+              name={isCopied ? 'check-circle' : 'content-copy'}
+              size={15}
+              color={isCopied ? '#10B981' : '#64748B'}
             />
             <ThemedText
               type="code"
               style={[
                 styles.copyText,
-                { color: isCopied ? '#10B981' : '#94A3B8' },
+                { color: isCopied ? '#10B981' : '#64748B' },
               ]}
             >
               {isCopied ? 'Kopyalandı' : 'Kopyala'}
@@ -79,56 +102,62 @@ export default function PhrasesScreen() {
 
         <View style={styles.phraseContent}>
           {/* Türkçe */}
-          <ThemedText type="smallBold" style={styles.trText}>
+          <ThemedText type="smallBold" style={[styles.trText, { color: theme.text }]}>
             {item.tr}
           </ThemedText>
 
           {/* İngilizce */}
-          <ThemedText type="small" style={styles.enText}>
+          <ThemedText type="small" style={[styles.enText, { color: theme.textSecondary }]}>
             {item.en}
           </ThemedText>
 
-          {/* Boşnakça */}
-          <View style={styles.bsContainer}>
-            <ThemedText type="code" style={styles.bsLabel}>
-              Boşnakça:
+          {/* Boşnakça (Renkli Kutu) */}
+          <View style={[styles.bsContainer, { backgroundColor: catColor.lightBg }]}>
+            <ThemedText type="code" style={[styles.bsLabel, { color: catColor.primary }]}>
+              Boşnakça
             </ThemedText>
-            <ThemedText type="default" style={styles.bsText}>
+            <ThemedText type="default" style={[styles.bsText, { color: theme.text }]}>
               {item.bs}
             </ThemedText>
           </View>
         </View>
-      </ThemedView>
+      </View>
     );
   };
 
   return (
     <ThemedView style={styles.container}>
+      <StatusBar style="auto" />
       <SafeAreaView style={styles.safeArea} edges={['top']}>
         {/* Başlık */}
         <View style={styles.header}>
+          <Image
+            source={require('@/assets/images/logo.png')}
+            style={styles.logo}
+            resizeMode="contain"
+          />
           <ThemedText type="subtitle" style={styles.headerTitle}>
             Pratik Cümleler
           </ThemedText>
-          <ThemedText type="small" style={styles.headerSubtitle}>
+          <ThemedText type="small" style={{ color: theme.textSecondary, marginTop: Spacing.half }}>
             Türkçe - İngilizce - Boşnakça Rehber
           </ThemedText>
         </View>
 
         {/* Arama Çubuğu */}
-        <View style={styles.searchContainer}>
+        <View style={[styles.searchContainer, { backgroundColor: theme.backgroundElement, borderColor: theme.backgroundSelected }]}>
           <MaterialCommunityIcons
             name="magnify"
             size={22}
-            color="#64748B"
+            color={theme.textSecondary}
             style={styles.searchIcon}
           />
           <TextInput
-            style={styles.searchInput}
+            style={[styles.searchInput, { color: theme.text }]}
             value={searchQuery}
             onChangeText={setSearchQuery}
             placeholder="Kelime veya cümle ara..."
-            placeholderTextColor="#64748B"
+            placeholderTextColor={theme.textSecondary}
             clearButtonMode="while-editing"
             returnKeyType="search"
             onSubmitEditing={Keyboard.dismiss}
@@ -138,7 +167,7 @@ export default function PhrasesScreen() {
               <MaterialCommunityIcons
                 name="close-circle"
                 size={18}
-                color="#64748B"
+                color={theme.textSecondary}
                 style={styles.clearIcon}
               />
             </TouchableOpacity>
@@ -151,6 +180,7 @@ export default function PhrasesScreen() {
             horizontal
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={styles.categoriesContainer}
+            keyboardShouldPersistTaps="handled"
           >
             {CATEGORIES.map((category) => {
               const isSelected = selectedCategory === category;
@@ -159,6 +189,7 @@ export default function PhrasesScreen() {
                   key={category}
                   style={[
                     styles.chip,
+                    { backgroundColor: theme.backgroundElement, borderColor: theme.backgroundSelected },
                     isSelected && styles.chipActive,
                   ]}
                   onPress={() => setSelectedCategory(category)}
@@ -167,6 +198,7 @@ export default function PhrasesScreen() {
                     type="smallBold"
                     style={[
                       styles.chipText,
+                      { color: theme.textSecondary },
                       isSelected && styles.chipTextActive,
                     ]}
                   >
@@ -185,14 +217,16 @@ export default function PhrasesScreen() {
           renderItem={renderPhraseCard}
           contentContainerStyle={styles.listContent}
           showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
           ListEmptyComponent={
             <View style={styles.emptyContainer}>
               <MaterialCommunityIcons
                 name="clipboard-alert-outline"
                 size={48}
-                color="#475569"
+                color={theme.textSecondary}
               />
-              <ThemedText style={styles.emptyText}>
+              <ThemedText style={[styles.emptyText, { color: theme.textSecondary }]}>
                 Aradığınız kriterde cümle bulunamadı.
               </ThemedText>
             </View>
@@ -216,32 +250,35 @@ const styles = StyleSheet.create({
     paddingBottom: Spacing.two,
     alignItems: 'center',
   },
-  headerTitle: {
-    color: '#FFD700',
-    fontWeight: '800',
+  logo: {
+    width: 72,
+    height: 72,
+    borderRadius: 18,
+    marginBottom: Spacing.two,
   },
-  headerSubtitle: {
-    color: '#94A3B8',
-    marginTop: Spacing.half,
+  headerTitle: {
+    color: '#0D9488', // Soft Turquoise
+    fontWeight: '800',
   },
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#0F172A',
     marginHorizontal: Spacing.four,
     paddingHorizontal: Spacing.three,
     borderRadius: Spacing.three,
     height: 48,
     borderWidth: 1.5,
-    borderColor: '#1E293B',
     marginBottom: Spacing.three,
+    shadowColor: '#64748B',
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 2 },
   },
   searchIcon: {
     marginRight: Spacing.two,
   },
   searchInput: {
     flex: 1,
-    color: '#F8FAFC',
     fontSize: 16,
     height: '100%',
   },
@@ -256,23 +293,20 @@ const styles = StyleSheet.create({
     gap: Spacing.two,
   },
   chip: {
-    backgroundColor: '#1E293B',
     paddingHorizontal: Spacing.three,
     paddingVertical: Spacing.one + Spacing.half,
     borderRadius: Spacing.two,
-    borderWidth: 1,
-    borderColor: '#334155',
+    borderWidth: 1.5,
   },
   chipActive: {
-    backgroundColor: '#FFD700',
-    borderColor: '#FFD700',
+    backgroundColor: '#0D9488',
+    borderColor: '#0D9488',
   },
   chipText: {
-    color: '#94A3B8',
     fontSize: 13,
   },
   chipTextActive: {
-    color: '#0F172A',
+    color: '#FFFFFF',
   },
   listContent: {
     paddingHorizontal: Spacing.four,
@@ -282,29 +316,30 @@ const styles = StyleSheet.create({
   card: {
     borderRadius: Spacing.three,
     padding: Spacing.three,
-    borderWidth: 1,
-    borderColor: '#2E3135',
+    borderWidth: 1.5,
+    borderLeftWidth: 5,
+    shadowColor: '#64748B',
+    shadowOpacity: 0.04,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 1,
   },
   cardHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: Spacing.two,
-    borderBottomWidth: 1,
-    borderBottomColor: '#2E3135',
     paddingBottom: Spacing.one,
   },
   categoryBadge: {
-    backgroundColor: '#1E1B4B',
     paddingHorizontal: Spacing.two,
     paddingVertical: Spacing.half / 2,
     borderRadius: Spacing.one,
-    borderWidth: 0.5,
-    borderColor: '#4338CA',
+    borderWidth: 1,
   },
   categoryBadgeText: {
-    color: '#FFD700',
     fontSize: 10,
+    fontWeight: 'bold',
   },
   copyButton: {
     flexDirection: 'row',
@@ -318,37 +353,32 @@ const styles = StyleSheet.create({
   },
   copyText: {
     fontSize: 11,
+    fontWeight: '700',
   },
   phraseContent: {
     gap: Spacing.one,
   },
   trText: {
-    color: '#F8FAFC',
     fontSize: 16,
   },
   enText: {
-    color: '#94A3B8',
     fontStyle: 'italic',
     fontSize: 13,
   },
   bsContainer: {
-    backgroundColor: '#0F172A',
     padding: Spacing.two,
     borderRadius: Spacing.two,
-    marginTop: Spacing.one,
-    borderLeftWidth: 3,
-    borderLeftColor: '#10B981',
+    marginTop: Spacing.two,
   },
   bsLabel: {
-    color: '#10B981',
-    fontSize: 10,
+    fontSize: 9,
     textTransform: 'uppercase',
+    fontWeight: '800',
     marginBottom: Spacing.half / 2,
   },
   bsText: {
-    color: '#F8FAFC',
     fontSize: 15,
-    fontWeight: '600',
+    fontWeight: '700',
   },
   emptyContainer: {
     alignItems: 'center',
@@ -357,7 +387,6 @@ const styles = StyleSheet.create({
     gap: Spacing.two,
   },
   emptyText: {
-    color: '#64748B',
     textAlign: 'center',
   },
 });

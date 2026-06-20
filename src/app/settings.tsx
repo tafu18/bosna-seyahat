@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   StyleSheet,
   View,
@@ -9,21 +9,40 @@ import {
   Platform,
   TouchableWithoutFeedback,
   Keyboard,
+  Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { StatusBar } from 'expo-status-bar';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { useRates } from '@/hooks/use-rates';
+import { useTheme } from '@/hooks/use-theme';
 import { BottomTabInset, Spacing } from '@/constants/theme';
 
 export default function SettingsScreen() {
   const { eurToTry, eurToBam, saveRates, resetRates } = useRates();
+  const theme = useTheme();
   
   const [eurToTryInput, setEurToTryInput] = useState('');
   const [eurToBamInput, setEurToBamInput] = useState('');
   const [saveStatus, setSaveStatus] = useState<'idle' | 'success' | 'error'>('idle');
+
+  // Scroll logic
+  const scrollViewRef = useRef<ScrollView>(null);
+  const [sectionY, setSectionY] = useState(0);
+
+  const handleFocus = () => {
+    if (sectionY > 0) {
+      setTimeout(() => {
+        scrollViewRef.current?.scrollTo({
+          y: Math.max(0, sectionY - 20),
+          animated: true,
+        });
+      }, 100);
+    }
+  };
 
   // Kurlar değiştikçe inputları güncelle
   useEffect(() => {
@@ -34,7 +53,6 @@ export default function SettingsScreen() {
   const handleSave = async () => {
     Keyboard.dismiss();
     
-    // Virgülleri noktaya çevirip parse et
     const tryRate = parseFloat(eurToTryInput.replace(',', '.'));
     const bamRate = parseFloat(eurToBamInput.replace(',', '.'));
 
@@ -68,66 +86,79 @@ export default function SettingsScreen() {
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       style={{ flex: 1 }}
     >
-      <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-        <ThemedView style={styles.container}>
-          <SafeAreaView style={styles.safeArea} edges={['top']}>
-            <ScrollView
-              contentContainerStyle={styles.scrollContent}
-              showsVerticalScrollIndicator={false}
-            >
+      <ThemedView style={styles.container}>
+        <StatusBar style="auto" />
+        <SafeAreaView style={styles.safeArea} edges={['top']}>
+          <ScrollView
+            ref={scrollViewRef}
+            contentContainerStyle={styles.scrollContent}
+            keyboardShouldPersistTaps="handled"
+            keyboardDismissMode="on-drag"
+            showsVerticalScrollIndicator={false}
+          >
               {/* Başlık */}
               <View style={styles.header}>
+                <Image
+                  source={require('@/assets/images/logo.png')}
+                  style={styles.logo}
+                  resizeMode="contain"
+                />
                 <ThemedText type="subtitle" style={styles.headerTitle}>
                   Ayarlar & Rehber
                 </ThemedText>
-                <ThemedText type="small" style={styles.headerSubtitle}>
+                <ThemedText type="small" style={{ color: theme.textSecondary, marginTop: Spacing.half }}>
                   Kur Oranları ve Seyahat Bilgileri
                 </ThemedText>
               </View>
 
               {/* Kur Ayarları Bölümü */}
-              <View style={styles.section}>
+              <View
+                style={styles.section}
+                onLayout={(e) => setSectionY(e.nativeEvent.layout.y)}
+              >
                 <View style={styles.sectionHeader}>
-                  <MaterialCommunityIcons name="currency-usd-off" size={20} color="#FFD700" />
-                  <ThemedText type="smallBold" style={styles.sectionTitle}>
+                  <MaterialCommunityIcons name="currency-usd-off" size={20} color="#D97706" />
+                  <ThemedText type="smallBold" style={[styles.sectionTitle, { color: theme.text }]}>
                     Manuel Kur Ayarları
                   </ThemedText>
                 </View>
 
-                <ThemedView type="backgroundElement" style={styles.card}>
+                <View style={[styles.card, { backgroundColor: theme.backgroundElement, borderColor: theme.backgroundSelected }]}>
                   <View style={styles.inputGroup}>
-                    <ThemedText type="smallBold" style={styles.inputLabel}>
+                    <ThemedText type="smallBold" style={{ color: theme.textSecondary, marginBottom: Spacing.one }}>
                       1 Avro (EUR) kaç TL?
                     </ThemedText>
-                    <View style={styles.inputWrapper}>
+                    <View style={[styles.inputWrapper, { backgroundColor: theme.background, borderColor: theme.backgroundSelected }]}>
                       <ThemedText style={styles.currencyPrefix}>₺</ThemedText>
                       <TextInput
-                        style={styles.textInput}
+                        style={[styles.textInput, { color: theme.text }]}
                         value={eurToTryInput}
                         onChangeText={setEurToTryInput}
                         keyboardType="numeric"
                         placeholder="Örn: 36.20"
-                        placeholderTextColor="#475569"
+                        placeholderTextColor={theme.textSecondary}
+                        onFocus={handleFocus}
                       />
                     </View>
                   </View>
 
                   <View style={[styles.inputGroup, { marginTop: Spacing.three }]}>
-                    <ThemedText type="smallBold" style={styles.inputLabel}>
+                    <ThemedText type="smallBold" style={{ color: theme.textSecondary, marginBottom: Spacing.one }}>
                       1 Avro (EUR) kaç Bosna Markı (BAM)?
                     </ThemedText>
-                    <View style={styles.inputWrapper}>
+                    <View style={[styles.inputWrapper, { backgroundColor: theme.background, borderColor: theme.backgroundSelected }]}>
                       <ThemedText style={styles.currencyPrefix}>KM</ThemedText>
                       <TextInput
-                        style={styles.textInput}
+                        style={[styles.textInput, { color: theme.text }]}
                         value={eurToBamInput}
                         onChangeText={setEurToBamInput}
                         keyboardType="numeric"
                         placeholder="Örn: 1.95583"
-                        placeholderTextColor="#475569"
+                        placeholderTextColor={theme.textSecondary}
+                        onFocus={handleFocus}
                       />
                     </View>
-                    <ThemedText type="code" style={styles.helperText}>
+                    <ThemedText type="code" style={{ color: theme.textSecondary, fontSize: 11, marginTop: Spacing.one }}>
                       * Bosna Markı Euro'ya sabittir (1 EUR = 1.95583 BAM).
                     </ThemedText>
                   </View>
@@ -135,10 +166,10 @@ export default function SettingsScreen() {
                   {/* Kaydet / Sıfırla Butonları */}
                   <View style={styles.buttonRow}>
                     <TouchableOpacity
-                      style={styles.resetButton}
+                      style={[styles.resetButton, { backgroundColor: theme.background, borderColor: theme.backgroundSelected }]}
                       onPress={handleReset}
                     >
-                      <ThemedText type="smallBold" style={styles.resetButtonText}>
+                      <ThemedText type="smallBold" style={{ color: theme.textSecondary }}>
                         Varsayılana Dön
                       </ThemedText>
                     </TouchableOpacity>
@@ -170,26 +201,26 @@ export default function SettingsScreen() {
                       </ThemedText>
                     </View>
                   )}
-                </ThemedView>
+                </View>
               </View>
 
               {/* Bosna Seyahat Notları */}
               <View style={styles.section}>
                 <View style={styles.sectionHeader}>
                   <MaterialCommunityIcons name="map-marker-outline" size={20} color="#10B981" />
-                  <ThemedText type="smallBold" style={styles.sectionTitle}>
+                  <ThemedText type="smallBold" style={[styles.sectionTitle, { color: theme.text }]}>
                     Bosna-Hersek Seyahat Notları
                   </ThemedText>
                 </View>
 
-                <ThemedView type="backgroundElement" style={styles.infoCard}>
+                <View style={[styles.infoCard, { backgroundColor: theme.backgroundElement, borderColor: theme.backgroundSelected }]}>
                   <View style={styles.infoRow}>
                     <MaterialCommunityIcons name="passport" size={20} color="#10B981" />
                     <View style={styles.infoTextContainer}>
-                      <ThemedText type="smallBold" style={styles.infoTitle}>
+                      <ThemedText type="smallBold" style={{ color: theme.text, marginBottom: Spacing.half }}>
                         Vize Durumu
                       </ThemedText>
-                      <ThemedText type="small" style={styles.infoDesc}>
+                      <ThemedText type="small" style={{ color: theme.textSecondary, lineHeight: 18 }}>
                         Türk vatandaşları 180 gün içinde 90 günü aşmayan turistik seyahatlerinde vizeden muaftır. Girişte pasaportunuzun en az 3 ay geçerliliği olması önerilir.
                       </ThemedText>
                     </View>
@@ -198,10 +229,10 @@ export default function SettingsScreen() {
                   <View style={[styles.infoRow, { marginTop: Spacing.three }]}>
                     <MaterialCommunityIcons name="cash" size={20} color="#10B981" />
                     <View style={styles.infoTextContainer}>
-                      <ThemedText type="smallBold" style={styles.infoTitle}>
+                      <ThemedText type="smallBold" style={{ color: theme.text, marginBottom: Spacing.half }}>
                         Para Birimi & Ödemeler
                       </ThemedText>
-                      <ThemedText type="small" style={styles.infoDesc}>
+                      <ThemedText type="small" style={{ color: theme.textSecondary, lineHeight: 18 }}>
                         Bosna-Hersek Markı (BAM / KM) kullanılır. Euro ile kur oranı sabittir. Birçok dükkanda nakit Euro da kabul edilir fakat para üstü yerel para (KM) olarak verilebilir. Kredi kartı büyük yerlerde geçerlidir ancak küçük esnaflarda nakit KM taşımak şarttır.
                       </ThemedText>
                     </View>
@@ -210,70 +241,69 @@ export default function SettingsScreen() {
                   <View style={[styles.infoRow, { marginTop: Spacing.three }]}>
                     <MaterialCommunityIcons name="comment-text-outline" size={20} color="#10B981" />
                     <View style={styles.infoTextContainer}>
-                      <ThemedText type="smallBold" style={styles.infoTitle}>
+                      <ThemedText type="smallBold" style={{ color: theme.text, marginBottom: Spacing.half }}>
                         Dil
                       </ThemedText>
-                      <ThemedText type="small" style={styles.infoDesc}>
+                      <ThemedText type="small" style={{ color: theme.textSecondary, lineHeight: 18 }}>
                         Boşnakça, Hırvatça ve Sırpça resmi dillerdir. Turistik bölgelerde İngilizce yaygındır. Tarihi bağlardan dolayı Türkçe bilen kişilere de sıkça rastlayabilirsiniz.
                       </ThemedText>
                     </View>
                   </View>
-                </ThemedView>
+                </View>
               </View>
 
               {/* Acil Durum Numaraları */}
               <View style={[styles.section, { marginBottom: Spacing.four }]}>
                 <View style={styles.sectionHeader}>
                   <MaterialCommunityIcons name="phone-alert" size={20} color="#EF4444" />
-                  <ThemedText type="smallBold" style={styles.sectionTitle}>
+                  <ThemedText type="smallBold" style={[styles.sectionTitle, { color: theme.text }]}>
                     Acil Durum Numaraları
                   </ThemedText>
                 </View>
 
-                <ThemedView type="backgroundElement" style={styles.infoCard}>
+                <View style={[styles.infoCard, { backgroundColor: '#FEE2E2', borderColor: '#FCA5A5' }]}>
                   <View style={styles.emergencyRow}>
                     <View style={styles.emergencyItem}>
                       <MaterialCommunityIcons name="police-badge" size={24} color="#EF4444" />
-                      <ThemedText type="smallBold" style={styles.emergencyLabel}>
+                      <ThemedText type="smallBold" style={{ color: '#EF4444', fontSize: 12 }}>
                         Polis
                       </ThemedText>
-                      <ThemedText type="subtitle" style={styles.emergencyNumber}>
+                      <ThemedText type="subtitle" style={{ color: '#EF4444', fontWeight: 'bold' }}>
                         122
                       </ThemedText>
                     </View>
 
-                    <View style={styles.emergencyDivider} />
+                    <View style={[styles.emergencyDivider, { backgroundColor: '#FCA5A5' }]} />
 
                     <View style={styles.emergencyItem}>
                       <MaterialCommunityIcons name="fire" size={24} color="#EF4444" />
-                      <ThemedText type="smallBold" style={styles.emergencyLabel}>
+                      <ThemedText type="smallBold" style={{ color: '#EF4444', fontSize: 12 }}>
                         İtfaiye
                       </ThemedText>
-                      <ThemedText type="subtitle" style={styles.emergencyNumber}>
+                      <ThemedText type="subtitle" style={{ color: '#EF4444', fontWeight: 'bold' }}>
                         123
                       </ThemedText>
                     </View>
 
-                    <View style={styles.emergencyDivider} />
+                    <View style={[styles.emergencyDivider, { backgroundColor: '#FCA5A5' }]} />
 
                     <View style={styles.emergencyItem}>
                       <MaterialCommunityIcons name="ambulance" size={24} color="#EF4444" />
-                      <ThemedText type="smallBold" style={styles.emergencyLabel}>
+                      <ThemedText type="smallBold" style={{ color: '#EF4444', fontSize: 12 }}>
                         Ambulans
                       </ThemedText>
-                      <ThemedText type="subtitle" style={styles.emergencyNumber}>
+                      <ThemedText type="subtitle" style={{ color: '#EF4444', fontWeight: 'bold' }}>
                         124
                       </ThemedText>
                     </View>
                   </View>
-                </ThemedView>
+                </View>
               </View>
 
             </ScrollView>
           </SafeAreaView>
         </ThemedView>
-      </TouchableWithoutFeedback>
-    </KeyboardAvoidingView>
+      </KeyboardAvoidingView>
   );
 }
 
@@ -293,13 +323,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginVertical: Spacing.two,
   },
-  headerTitle: {
-    color: '#FFD700',
-    fontWeight: '800',
+  logo: {
+    width: 72,
+    height: 72,
+    borderRadius: 18,
+    marginBottom: Spacing.two,
   },
-  headerSubtitle: {
-    color: '#94A3B8',
-    marginTop: Spacing.half,
+  headerTitle: {
+    color: '#0D9488', // Soft Turquoise
+    fontWeight: '800',
   },
   section: {
     marginTop: Spacing.four,
@@ -311,76 +343,62 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.two,
   },
   sectionTitle: {
-    color: '#F8FAFC',
+    fontSize: 16,
+    fontWeight: 'bold',
   },
   card: {
     borderRadius: Spacing.three,
     padding: Spacing.three,
-    borderWidth: 1,
-    borderColor: '#2E3135',
+    borderWidth: 1.5,
+    shadowColor: '#64748B',
+    shadowOpacity: 0.04,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 4 },
   },
   inputGroup: {
     alignSelf: 'stretch',
   },
-  inputLabel: {
-    color: '#94A3B8',
-    marginBottom: Spacing.one,
-    fontSize: 13,
-  },
   inputWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#0F172A',
     borderRadius: Spacing.two,
-    borderWidth: 1,
-    borderColor: '#334155',
+    borderWidth: 1.5,
     paddingHorizontal: Spacing.three,
     height: 48,
   },
   currencyPrefix: {
-    color: '#FFD700',
+    color: '#0D9488',
     fontSize: 16,
     fontWeight: 'bold',
     marginRight: Spacing.two,
   },
   textInput: {
     flex: 1,
-    color: '#F8FAFC',
     fontSize: 16,
     height: '100%',
-  },
-  helperText: {
-    color: '#64748B',
-    fontSize: 11,
-    marginTop: Spacing.one,
   },
   buttonRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     marginTop: Spacing.four,
-    gap: Spacing.two,
+    gap: Spacing.three,
   },
   resetButton: {
     flex: 1,
-    backgroundColor: '#1E293B',
     paddingVertical: Spacing.three,
     borderRadius: Spacing.two,
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#334155',
-  },
-  resetButtonText: {
-    color: '#94A3B8',
+    borderWidth: 1.5,
   },
   saveButton: {
     flex: 1,
-    backgroundColor: '#FFD700',
+    backgroundColor: '#0D9488',
     paddingVertical: Spacing.three,
     borderRadius: Spacing.two,
     alignItems: 'center',
   },
   saveButtonText: {
-    color: '#0F172A',
+    color: '#FFFFFF',
   },
   statusContainer: {
     flexDirection: 'row',
@@ -390,29 +408,32 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.two,
     borderRadius: Spacing.two,
     marginTop: Spacing.three,
-    borderWidth: 1,
+    borderWidth: 1.5,
   },
   statusSuccess: {
-    backgroundColor: '#064E3B',
-    borderColor: '#065F46',
+    backgroundColor: '#ECFDF5',
+    borderColor: '#A7F3D0',
   },
   successText: {
-    color: '#10B981',
+    color: '#065F46',
     fontSize: 12,
   },
   statusError: {
-    backgroundColor: '#7F1D1D',
-    borderColor: '#991B1B',
+    backgroundColor: '#FEE2E2',
+    borderColor: '#FCA5A5',
   },
   errorText: {
-    color: '#EF4444',
+    color: '#991B1B',
     fontSize: 12,
   },
   infoCard: {
     borderRadius: Spacing.three,
     padding: Spacing.three,
-    borderWidth: 1,
-    borderColor: '#2E3135',
+    borderWidth: 1.5,
+    shadowColor: '#64748B',
+    shadowOpacity: 0.04,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 4 },
   },
   infoRow: {
     flexDirection: 'row',
@@ -421,14 +442,10 @@ const styles = StyleSheet.create({
   infoTextContainer: {
     flex: 1,
   },
-  infoTitle: {
-    color: '#F8FAFC',
-    marginBottom: Spacing.half,
-  },
-  infoDesc: {
-    color: '#94A3B8',
-    lineHeight: 18,
-    fontSize: 13,
+  emergencyCard: {
+    borderRadius: Spacing.three,
+    padding: Spacing.three,
+    borderWidth: 1.5,
   },
   emergencyRow: {
     flexDirection: 'row',
@@ -441,17 +458,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: Spacing.one,
   },
-  emergencyLabel: {
-    color: '#94A3B8',
-    fontSize: 12,
-  },
-  emergencyNumber: {
-    color: '#EF4444',
-    fontWeight: 'bold',
-  },
   emergencyDivider: {
     width: 1,
     height: 48,
-    backgroundColor: '#334155',
   },
 });
